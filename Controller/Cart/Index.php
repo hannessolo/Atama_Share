@@ -9,10 +9,13 @@ use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Controller\ResultFactory;
 use Magento\Framework\Controller\ResultInterface;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\GraphQl\Model\Query\ContextInterface;
 use Magento\Quote\Model\GuestCart\GuestCartResolver;
 use Magento\Quote\Model\QuoteIdToMaskedQuoteIdInterface;
 use Magento\QuoteGraphQl\Model\Cart\CreateEmptyCartForCustomer;
+use Magento\Quote\Model\QuoteIdMaskFactory;
+use Magento\Quote\Model\ResourceModel\Quote\QuoteIdMask as QuoteIdMaskResourceModel;
 
 /**
  * Route handler for returning the current session cart for either guest or customer, and creating
@@ -50,6 +53,14 @@ class Index implements HttpPostActionInterface
      * @var CreateEmptyCartForCustomer
      */
     private $createEmptyCartForCustomer;
+    /**
+     * @var QuoteIdMaskFactory
+     */
+    private $quoteIdMaskFactory;
+    /**
+     * @var QuoteIdMaskResourceModel
+     */
+    private $quoteIdMaskResourceModel;
 
 
     /**
@@ -69,6 +80,8 @@ class Index implements HttpPostActionInterface
         CurrentCustomer $currentCustomer,
         GuestCartResolver $guestCartResolver,
         CreateEmptyCartForCustomer $createEmptyCartForCustomer,
+        QuoteIdMaskFactory $quoteIdMaskFactory,
+        QuoteIdMaskResourceModel $quoteIdMaskResourceModel,
     ) {
         $this->quoteIdToMaskedQuoteId = $quoteIdToMaskedQuoteId;
         $this->session = $session;
@@ -77,7 +90,25 @@ class Index implements HttpPostActionInterface
         $this->currentCustomer = $currentCustomer;
         $this->guestCartResolver = $guestCartResolver;
         $this->createEmptyCartForCustomer = $createEmptyCartForCustomer;
+        $this->quoteIdMaskFactory = $quoteIdMaskFactory;
+        $this->quoteIdMaskResourceModel = $quoteIdMaskResourceModel;
     }
+
+    private function ensureQuoteMaskIdExist(int $quoteId): void
+    {
+        try {
+            $maskedId = $this->quoteIdToMaskedQuoteId->execute($quoteId);
+        } catch (NoSuchEntityException $e) {
+            $maskedId = '';
+        }
+        if ($maskedId === '') {
+            $quoteIdMask = $this->quoteIdMaskFactory->create();
+            $quoteIdMask->setQuoteId($quoteId);
+            $this->quoteIdMaskResourceModel->save($quoteIdMask);
+        }
+    }
+
+
     /**
      * Execute view action
      *
@@ -115,6 +146,7 @@ class Index implements HttpPostActionInterface
 
             $maskedCartId = null;
             if ($this->session->getQuoteId() !== null && $this->session->getQuoteId() !== 0) {
+                $this->ensureQuoteMaskIdExist(intval($this->session->getQuoteId()));
                 $maskedCartId = $this->quoteIdToMaskedQuoteId->execute(intval($this->session->getQuoteId()));
             } else {
                 $maskedCartId = $this->createEmptyCartForCustomer->execute($currentCustomerId);

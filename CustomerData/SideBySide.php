@@ -81,8 +81,10 @@ class SideBySide implements SectionSourceInterface
      * @param CurrentCustomer $currentCustomer
      * @param GuestCartResolver $guestCartResolver
      * @param CreateEmptyCartForCustomer $createEmptyCartForCustomer
-     * @param UserTokenParametersFactory $tokenParamsFactory
-     * @param UserTokenIssuerInterface $tokenIssuer
+     * @param QuoteIdMaskFactory $quoteIdMaskFactory
+     * @param QuoteIdMaskResourceModel $quoteIdMaskResourceModel
+     * @param UserTokenParametersFactory|null $tokenParamsFactory
+     * @param UserTokenIssuerInterface|null $tokenIssuer
      */
     public function __construct(
         QuoteIdToMaskedQuoteIdInterface $quoteIdToMaskedQuoteId,
